@@ -20,7 +20,8 @@ from typing import Any
 
 from wololo.agents.base import Action, Agent, MarketAction, TauntAction
 from wololo.agents.fake import FakeLlm
-from wololo.agents.llm import AnthropicClient, LlmAgent, LlmClient
+from wololo.agents.llm import AnthropicClient, LlmAgent
+from wololo.agents.tools import ToolLlmAgent
 from wololo.codec import Message, encode_message, split_frames
 from wololo.orchestrator.supervisor import AgentSpec, Supervisor
 from wololo.substrate.interface import GOLD, Observation, Resource
@@ -201,20 +202,30 @@ def _llm_role(stock: str) -> str:
 
 def llm_gather(
     seed: int = 0,
-    client_factory: Callable[[], LlmClient] | None = None,
+    client_factory: Callable[[], Any] | None = None,
+    *,
+    tools: bool = False,
 ) -> Scenario:
     """Cooperative gathering with LLM players (Anthropic API by default).
 
-    Tests inject deterministic stub clients via ``client_factory``; the CLI
-    uses the real API (requires ANTHROPIC_API_KEY and ``wololo[llm]``).
+    With ``tools=True`` agents use the tool-use harness (including the codec
+    helper tools) instead of raw JSON replies.  Tests inject deterministic
+    stub clients via ``client_factory``; the CLI uses the real API (requires
+    ANTHROPIC_API_KEY and ``wololo[llm]``).
     """
-    factory: Callable[[], LlmClient] = client_factory or AnthropicClient
+    factory: Callable[[], Any] = client_factory or AnthropicClient
 
     def goal(kernel: SimKernel) -> bool:
         return sum(s.stockpile[GOLD] for s in kernel.agent_states.values()) >= _LLM_GOAL_GOLD
 
+    def make_agent(agent_id: int, stock: str) -> Agent:
+        role = _llm_role(stock)
+        if tools:
+            return ToolLlmAgent(agent_id, role, factory())
+        return LlmAgent(agent_id, role, factory())
+
     return Scenario(
-        name="llm_gather",
+        name="llm_gather_tools" if tools else "llm_gather",
         map_size=(8, 8),
         seed=seed,
         max_ticks=30,
@@ -223,13 +234,13 @@ def llm_gather(
                 agent_id=0,
                 pos=(1, 1),
                 stockpile={"wood": 400},
-                factory=lambda: LlmAgent(0, _llm_role("400 wood"), factory()),
+                factory=lambda: make_agent(0, "400 wood"),
             ),
             AgentSetup(
                 agent_id=1,
                 pos=(6, 6),
                 stockpile={"stone": 400},
-                factory=lambda: LlmAgent(1, _llm_role("400 stone"), factory()),
+                factory=lambda: make_agent(1, "400 stone"),
             ),
         ),
         goal=goal,
@@ -239,4 +250,5 @@ def llm_gather(
 SCENARIOS: dict[str, Callable[[int], Scenario]] = {
     "coop_gather": coop_gather,
     "llm_gather": llm_gather,
+    "llm_gather_tools": lambda seed=0: llm_gather(seed, tools=True),
 }

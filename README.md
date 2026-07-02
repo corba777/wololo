@@ -25,9 +25,11 @@ ruff check . && ruff format .  # lint & format
 ```bash
 wololo coop_gather            # scripted FakeLlm agents, deterministic
 wololo coop_gather --stats    # + taunt n-gram stats (protocol emergence)
+wololo coop_gather --runs 10 --stats --record runs.jsonl   # batch harness
 
 pip install -e ".[dev,llm]"   # LLM scenarios need the anthropic extra
-ANTHROPIC_API_KEY=... wololo llm_gather --stats
+ANTHROPIC_API_KEY=... wololo llm_gather --stats        # raw JSON replies
+ANTHROPIC_API_KEY=... wololo llm_gather_tools --stats  # tool-use harness
 ```
 
 ## Status
@@ -39,4 +41,8 @@ ANTHROPIC_API_KEY=... wololo llm_gather --stats
   confined to `agents/llm.py`, injectable stub clients in tests),
   `llm_gather` cooperative negotiation scenario, taunt n-gram statistics
   for measuring protocol emergence.
+- Tool harness done: `ToolLlmAgent` uses Anthropic tool use (action tools
+  queue substrate ops; codec helper tools encode/decode structured taunt
+  messages locally), plus a batch experiment harness with JSONL run
+  records and cross-run n-gram aggregation.
 - Milestone 3 (AoE II DE bridge) intentionally not started.

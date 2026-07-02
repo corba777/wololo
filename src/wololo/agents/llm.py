@@ -15,7 +15,8 @@ and imported lazily, so the rest of the package stays stdlib-only.
 from __future__ import annotations
 
 import json
-from typing import Protocol
+from dataclasses import dataclass
+from typing import Any, Protocol
 
 from wololo.agents.base import (
     Action,
@@ -38,6 +39,28 @@ class LlmClient(Protocol):
     """Minimal chat-completion interface; tests provide deterministic stubs."""
 
     def complete(self, *, system: str, messages: list[dict[str, str]]) -> str: ...
+
+
+@dataclass(frozen=True, slots=True)
+class ToolCall:
+    """One tool invocation requested by the model."""
+
+    id: str
+    name: str
+    input: dict[str, Any]
+
+
+@dataclass(frozen=True, slots=True)
+class LlmReply:
+    """A model turn in tool mode: raw content blocks plus parsed tool calls.
+
+    ``raw_content`` is replayed verbatim into the conversation history so
+    the provider sees its own tool_use blocks exactly as it produced them.
+    """
+
+    raw_content: list[dict[str, Any]]
+    tool_calls: tuple[ToolCall, ...] = ()
+    text: str = ""
 
 
 class AnthropicClient:
@@ -71,8 +94,34 @@ class AnthropicClient:
         )
         return "".join(block.text for block in response.content if block.type == "text")
 
+    def complete_tools(
+        self,
+        *,
+        system: str,
+        messages: list[dict[str, Any]],
+        tools: list[dict[str, Any]],
+    ) -> LlmReply:
+        """Tool-mode turn: returns raw content blocks plus parsed tool calls."""
+        response = self._client.messages.create(
+            model=self._model,
+            max_tokens=self._max_tokens,
+            system=system,
+            messages=messages,
+            tools=tools,
+        )
+        return LlmReply(
+            raw_content=[block.model_dump(exclude_none=True) for block in response.content],
+            tool_calls=tuple(
+                ToolCall(id=block.id, name=block.name, input=dict(block.input))
+                for block in response.content
+                if block.type == "tool_use"
+            ),
+            text="".join(block.text for block in response.content if block.type == "text"),
+        )
 
-_SYSTEM_TEMPLATE = """\
+
+#: Shared world description, reused by the JSON-mode and tool-mode prompts.
+WORLD_RULES = """\
 You are agent {agent_id} in "wololo", a cooperative match where the ONLY way
 to communicate with other agents is by shouting numbered taunts (1..105).
 There is no other channel; invent or follow whatever taunt conventions help.
@@ -89,7 +138,11 @@ World rules:
 
 Your role:
 {role}
+"""
 
+_SYSTEM_TEMPLATE = (
+    WORLD_RULES
+    + """
 Each turn you receive your current observation. Reply with ONLY a JSON array
 of actions and no other text. Action schemas:
   {{"type": "taunt", "taunt": 1-105}}
@@ -98,6 +151,7 @@ of actions and no other text. Action schemas:
   {{"type": "move", "dx": <int>, "dy": <int>}}
 An empty array [] means do nothing this tick.
 """
+)
 
 
 def render_observation(obs: Observation) -> str:
