@@ -76,6 +76,8 @@ class SimKernel(Substrate):
         self.triggers: TriggerEngine[SimKernel] = TriggerEngine()
         self.agent_states: dict[int, AgentState] = {}
         self.flags: dict[str, bool] = {}
+        #: Full chat history of the run, for post-hoc protocol analysis.
+        self.taunt_log: list[TauntEvent] = []
         self.current_tick = 0
         self._seq = 0
         self._pending_moves: list[tuple[int, int, int, int]] = []  # (seq, agent, dx, dy)
@@ -184,6 +186,7 @@ class SimKernel(Substrate):
                     stock[GOLD] += self.market.sell(resource)
 
         taunts = self.taunt_bus.flush(tick)
+        self.taunt_log.extend(taunts)
         self.triggers.evaluate(self)
 
         for agent_id in self.agent_states:

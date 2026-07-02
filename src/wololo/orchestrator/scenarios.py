@@ -20,6 +20,7 @@ from typing import Any
 
 from wololo.agents.base import Action, Agent, MarketAction, TauntAction
 from wololo.agents.fake import FakeLlm
+from wololo.agents.llm import AnthropicClient, LlmAgent, LlmClient
 from wololo.codec import Message, encode_message, split_frames
 from wololo.orchestrator.supervisor import AgentSpec, Supervisor
 from wololo.substrate.interface import GOLD, Observation, Resource
@@ -178,4 +179,64 @@ def coop_gather(seed: int = 0) -> Scenario:
     )
 
 
-SCENARIOS: dict[str, Callable[[int], Scenario]] = {"coop_gather": coop_gather}
+# ---------------------------------------------------------------------------
+# llm_gather — Milestone 2: two LLM agents negotiate the split over taunts
+# ---------------------------------------------------------------------------
+
+_LLM_GOAL_GOLD = 600
+
+_LLM_ROLE_TEMPLATE = """\
+You are on a two-agent team. TEAM GOAL: the combined gold of both agents
+must reach {goal} as fast as possible. You start with {stock} and no gold.
+You cannot see your teammate's stockpile, only global market prices and
+taunts. Selling a resource lowers its price for everyone, so duplicated
+work wastes gold: coordinate who sells what using taunts. Agree on your own
+taunt conventions.\
+"""
+
+
+def _llm_role(stock: str) -> str:
+    return _LLM_ROLE_TEMPLATE.format(goal=_LLM_GOAL_GOLD, stock=stock)
+
+
+def llm_gather(
+    seed: int = 0,
+    client_factory: Callable[[], LlmClient] | None = None,
+) -> Scenario:
+    """Cooperative gathering with LLM players (Anthropic API by default).
+
+    Tests inject deterministic stub clients via ``client_factory``; the CLI
+    uses the real API (requires ANTHROPIC_API_KEY and ``wololo[llm]``).
+    """
+    factory: Callable[[], LlmClient] = client_factory or AnthropicClient
+
+    def goal(kernel: SimKernel) -> bool:
+        return sum(s.stockpile[GOLD] for s in kernel.agent_states.values()) >= _LLM_GOAL_GOLD
+
+    return Scenario(
+        name="llm_gather",
+        map_size=(8, 8),
+        seed=seed,
+        max_ticks=30,
+        agents=(
+            AgentSetup(
+                agent_id=0,
+                pos=(1, 1),
+                stockpile={"wood": 400},
+                factory=lambda: LlmAgent(0, _llm_role("400 wood"), factory()),
+            ),
+            AgentSetup(
+                agent_id=1,
+                pos=(6, 6),
+                stockpile={"stone": 400},
+                factory=lambda: LlmAgent(1, _llm_role("400 stone"), factory()),
+            ),
+        ),
+        goal=goal,
+    )
+
+
+SCENARIOS: dict[str, Callable[[int], Scenario]] = {
+    "coop_gather": coop_gather,
+    "llm_gather": llm_gather,
+}
