@@ -27,6 +27,28 @@ protocols over a narrow, lossy, public channel.
 Triggers (condition → effect, loopable) are the substrate's internal event
 bus / rule engine — used by the kernel, not by agents directly.
 
+## External tools (MCP)
+
+Agents may additionally hold **private tools** connecting them to the outside
+world (email, spreadsheets, ...), supplied per-agent as `ToolProvider`s —
+typically `McpToolProvider` wrapping an MCP server session (`agents/mcp.py`,
+duck-typed, no `mcp` SDK dependency, sync only). Rules:
+
+- Tools are **agent↔world**, never agent↔agent. A tool must not be a covert
+  channel between agents (no shared mutable stores readable by two agents).
+- Anything one agent learned via a tool reaches another agent only through
+  the substrate: control *and* data plane is the taunt codec.
+- Each agent gets its own session ⇒ its own credential scope (e.g. the mail
+  watcher can read email but not write sheets, and vice versa).
+- Codec helper tools (`encode_message` / `decode_taunts`) are local, free,
+  and invisible to other agents.
+
+Reference demo: `orchestrator/shipping.py` — a mail-watcher agent parses an
+Amazon shipping email (fake inbox session), shouts the facts as a codec
+message; a sheet-scribe agent decodes and appends the row (fake sheet
+session). Offline and deterministic; real MCP sessions and
+`client_factory=AnthropicClient` slot into the same seams.
+
 ## Architecture
 
 ```
@@ -43,13 +65,18 @@ src/wololo/
   codec/
     tauntcodec.py    # serialize structured messages ⇄ taunt sequences (base-105)
   agents/
-    base.py          # Agent ABC: observe → think → act
-    llm.py           # LLM-backed agent (Anthropic API / Vertex)
+    base.py          # Agent ABC: observe → think → act; typed actions
+    llm.py           # LLM-backed agent, JSON mode (Anthropic API; lazy import)
+    tools.py         # tool-use harness: action tools + codec helpers + ToolProvider
+    mcp.py           # MCP bridge: expose a server session as a ToolProvider
     fake.py          # FakeLlm deterministic agent for tests (Nexus pattern)
   orchestrator/
     supervisor.py    # spawn/monitor/respawn agents; let-it-crash
-    scenarios.py     # scenario = map + goals + agent roster
-  cli.py             # run a scenario from the command line
+    scenarios.py     # scenario = map + goals + agent roster; registry
+    harness.py       # batch runs, JSONL records, cross-run n-gram stats
+    shipping.py      # email→taunts→spreadsheet pipeline demo (MCP-style tools)
+    cli.py           # run a scenario from the command line (--stats/--runs/--record)
+  analysis.py        # taunt n-gram statistics (protocol emergence)
 tests/
 ```
 
@@ -95,13 +122,14 @@ tests/
 
 ## Milestones
 
-1. **Simulated kernel + taunt codec + relic locks + market + trigger engine**,
-   FakeLlm agents, full test suite. Definition of done: a scripted 2-agent
-   scenario where agents coordinate a resource goal *via taunts only*, green
-   in CI.
-2. LLM-backed agents. First real scenario: cooperative gathering where two
-   Claude agents must negotiate task split over the taunt channel; measure
-   protocol emergence (taunt n-gram stats per run).
+1. **DONE** — Simulated kernel + taunt codec + relic locks + market + trigger
+   engine, FakeLlm agents, full test suite. Definition of done: a scripted
+   2-agent scenario (`coop_gather`) where agents coordinate a resource goal
+   *via taunts only*, green in CI.
+2. **DONE** — LLM-backed agents (`llm_gather`, JSON mode; `llm_gather_tools`,
+   tool-use mode), taunt n-gram stats for protocol emergence, batch
+   experiment harness. Plus the MCP tool-provider layer and the
+   `shipping_pipeline` real-world demo (see "External tools").
 3. *(explicitly out of scope for now)* Bridge to actual AoE II DE via XS
    scripts / external process. Interface is ready for it (`Substrate` ABC),
    but do not start it without an explicit ask.
@@ -109,6 +137,8 @@ tests/
 ## What NOT to do
 
 - Don't let agents exchange raw text outside the taunt codec.
+- Don't let external tools become an agent↔agent side channel (no shared
+  mutable stores between agents' tool sessions).
 - Don't make the kernel async, threaded, or wall-clock dependent.
 - Don't add an LLM call inside kernel code paths.
 - Don't build UI. `cli.py` printing tick logs is enough for now.

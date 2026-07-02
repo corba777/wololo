@@ -12,7 +12,8 @@ from wololo.agents.base import (
 )
 from wololo.agents.fake import FakeLlm, Policy
 from wololo.agents.llm import AnthropicClient, LlmAgent, LlmClient, LlmReply, ToolCall
-from wololo.agents.tools import ToolLlmAgent, ToolLlmClient
+from wololo.agents.mcp import McpSession, McpToolProvider
+from wololo.agents.tools import ToolLlmAgent, ToolLlmClient, ToolProvider
 
 __all__ = [
     "Action",
@@ -23,6 +24,8 @@ __all__ = [
     "LlmClient",
     "LlmReply",
     "MarketAction",
+    "McpSession",
+    "McpToolProvider",
     "MoveAction",
     "Policy",
     "RelicAction",
@@ -30,4 +33,5 @@ __all__ = [
     "ToolCall",
     "ToolLlmAgent",
     "ToolLlmClient",
+    "ToolProvider",
 ]

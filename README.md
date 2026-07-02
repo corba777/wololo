@@ -30,6 +30,8 @@ wololo coop_gather --runs 10 --stats --record runs.jsonl   # batch harness
 pip install -e ".[dev,llm]"   # LLM scenarios need the anthropic extra
 ANTHROPIC_API_KEY=... wololo llm_gather --stats        # raw JSON replies
 ANTHROPIC_API_KEY=... wololo llm_gather_tools --stats  # tool-use harness
+
+wololo shipping_pipeline      # email -> taunts -> spreadsheet demo (offline)
 ```
 
 ## Status
@@ -45,4 +47,8 @@ ANTHROPIC_API_KEY=... wololo llm_gather_tools --stats  # tool-use harness
   queue substrate ops; codec helper tools encode/decode structured taunt
   messages locally), plus a batch experiment harness with JSONL run
   records and cross-run n-gram aggregation.
+- MCP tool-provider layer done: per-agent `McpToolProvider` sessions give
+  agents private real-world tools (email, spreadsheets) with credential
+  scoping; the `shipping_pipeline` demo moves an Amazon shipping email
+  into a spreadsheet with all agent-to-agent traffic on the taunt codec.
 - Milestone 3 (AoE II DE bridge) intentionally not started.

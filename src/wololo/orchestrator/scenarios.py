@@ -247,8 +247,16 @@ def llm_gather(
     )
 
 
+def _shipping_pipeline(seed: int = 0) -> Scenario:
+    # Local import: shipping.py imports Scenario/AgentSetup from this module.
+    from wololo.orchestrator.shipping import build_shipping_pipeline
+
+    return build_shipping_pipeline(seed).scenario
+
+
 SCENARIOS: dict[str, Callable[[int], Scenario]] = {
     "coop_gather": coop_gather,
     "llm_gather": llm_gather,
     "llm_gather_tools": lambda seed=0: llm_gather(seed, tools=True),
+    "shipping_pipeline": _shipping_pipeline,
 }

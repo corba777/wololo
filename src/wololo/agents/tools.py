@@ -12,6 +12,7 @@ results are fed back as tool_results.  All calls still happen between ticks.
 from __future__ import annotations
 
 import json
+from collections.abc import Sequence
 from typing import Any, Protocol
 
 from wololo.agents.base import (
@@ -190,6 +191,21 @@ class ToolLlmClient(Protocol):
     ) -> LlmReply: ...
 
 
+class ToolProvider(Protocol):
+    """A pluggable source of extra tools for one agent (e.g. an MCP server).
+
+    Provider tools connect an agent privately to the outside world (email,
+    spreadsheets, ...).  They must never carry agent↔agent traffic — that
+    stays on the substrate.  ``execute`` returns the tool_result string;
+    faults should come back as an ``{"error": ...}`` JSON string so the
+    model can self-correct.
+    """
+
+    def tool_defs(self) -> list[dict[str, Any]]: ...
+
+    def execute(self, name: str, payload: dict[str, Any]) -> str: ...
+
+
 _TOOL_SYSTEM_TEMPLATE = (
     WORLD_RULES
     + """
@@ -212,11 +228,27 @@ class ToolLlmAgent(Agent):
     tools.  History is the agent's whole mental state — a respawn wipes it.
     """
 
-    def __init__(self, agent_id: int, role: str, client: ToolLlmClient) -> None:
+    def __init__(
+        self,
+        agent_id: int,
+        role: str,
+        client: ToolLlmClient,
+        providers: Sequence[ToolProvider] = (),
+    ) -> None:
         super().__init__(agent_id)
         self._client = client
         self._system = _TOOL_SYSTEM_TEMPLATE.format(agent_id=agent_id, role=role)
         self._turns: list[list[dict[str, Any]]] = []
+        self._providers: dict[str, ToolProvider] = {}
+        self._tool_defs = list(TOOL_DEFS)
+        reserved = ACTION_TOOL_NAMES | HELPER_TOOL_NAMES
+        for provider in providers:
+            for tool in provider.tool_defs():
+                name = tool["name"]
+                if name in reserved or name in self._providers:
+                    raise ValueError(f"duplicate tool name {name!r}")
+                self._providers[name] = provider
+                self._tool_defs.append(tool)
 
     def act(self, observation: Observation) -> list[Action]:
         group: list[dict[str, Any]] = [{"role": "user", "content": render_observation(observation)}]
@@ -225,7 +257,7 @@ class ToolLlmAgent(Agent):
             reply = self._client.complete_tools(
                 system=self._system,
                 messages=self._flatten() + group,
-                tools=TOOL_DEFS,
+                tools=self._tool_defs,
             )
             group.append({"role": "assistant", "content": reply.raw_content})
             if not reply.tool_calls:
@@ -240,6 +272,8 @@ class ToolLlmAgent(Agent):
                         content = "queued for next tick"
                     except ValueError as exc:
                         content = json.dumps({"error": str(exc)})
+                elif (provider := self._providers.get(call.name)) is not None:
+                    content = provider.execute(call.name, call.input)
                 else:
                     content = json.dumps({"error": f"unknown tool {call.name!r}"})
                 results.append({"type": "tool_result", "tool_use_id": call.id, "content": content})

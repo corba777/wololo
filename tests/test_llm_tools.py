@@ -40,7 +40,8 @@ class ScriptedToolClient:
         self.requests: list[list[dict]] = []
 
     def complete_tools(self, *, system: str, messages: list[dict], tools: list[dict]) -> LlmReply:
-        assert system and tools is TOOL_DEFS
+        assert system
+        assert {t["name"] for t in TOOL_DEFS} <= {t["name"] for t in tools}
         self.requests.append([dict(m) for m in messages])
         return self._replies.pop(0)
 
