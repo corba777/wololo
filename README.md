@@ -51,4 +51,8 @@ wololo shipping_pipeline      # email -> taunts -> spreadsheet demo (offline)
   agents private real-world tools (email, spreadsheets) with credential
   scoping; the `shipping_pipeline` demo moves an Amazon shipping email
   into a spreadsheet with all agent-to-agent traffic on the taunt codec.
-- Milestone 3 (AoE II DE bridge) intentionally not started.
+- Milestone 3 (AoE II DE bridge) in progress: the offline half is done —
+  `.xsdat` int32 codec, checksummed frame protocol, file mailbox,
+  `DeSubstrate` (taunt + market channels), and `FakeDeGame` as the
+  executable spec for the in-game XS script. The in-game half pends a
+  smoke test on a real installation: see `docs/de_bridge.md`.

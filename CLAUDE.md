@@ -55,6 +55,12 @@ session). Offline and deterministic; real MCP sessions and
 src/wololo/
   substrate/
     interface.py     # Substrate ABC: tick(), taunt(), market_op(), relic_op(), observe()
+    de/              # Milestone 3: bridge to a real AoE II DE match
+      xsdat.py       # int32 .xsdat file codec (XS file I/O physical layer)
+      protocol.py    # command/state frames: MAGIC VERSION seq ack records CHECKSUM
+      mailbox.py     # two-file dead-drop exchange; torn reads rejected by checksum
+      bridge.py      # DeSubstrate: Substrate over the mailbox (taunt+market only)
+      fakegame.py    # FakeDeGame: offline stand-in = executable spec for wololo.xs
     sim/             # Milestone 1: deterministic simulated kernel
       kernel.py      # tick-based world state
       taunts.py      # taunt bus (broadcast, ordered per tick)
@@ -130,9 +136,15 @@ tests/
    tool-use mode), taunt n-gram stats for protocol emergence, batch
    experiment harness. Plus the MCP tool-provider layer and the
    `shipping_pipeline` real-world demo (see "External tools").
-3. *(explicitly out of scope for now)* Bridge to actual AoE II DE via XS
-   scripts / external process. Interface is ready for it (`Substrate` ABC),
-   but do not start it without an explicit ask.
+3. **IN PROGRESS** — Bridge to actual AoE II DE. Step 1 (offline) done:
+   `substrate/de/` file-mailbox protocol, `DeSubstrate` (taunt + market
+   channels), `FakeDeGame` as the executable spec for the in-game XS
+   script, contract tests green with no game installed. Step 2 pends the
+   XS smoke test on a real installation — runbook in `docs/de_bridge.md`
+   (DE now ships a native macOS build as of May 2026). The DE bridge is
+   wall-clock bound by nature; the "no wall-clock" rule applies to the sim
+   kernel, not here. Sim stays the reference implementation and the CI
+   substrate.
 
 ## What NOT to do
 
