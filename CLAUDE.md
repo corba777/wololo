@@ -16,8 +16,8 @@ Agents may communicate **exclusively** through in-game channels:
 | `taunt`  | 105 numbered taunts (1–105) | message bus; discrete 105-symbol alphabet |
 | `market` | global buy/sell prices, drift per transaction | shared scalar state / slow consensus |
 | `relic`  | one relic ⇒ one monastery | distributed mutex / leader election |
-| `wololo` | monk conversion of a unit | ownership transfer / work stealing |
-| `fog`    | fog of war | partial observability (each agent sees only its explored map) |
+| `wololo` | monk conversion of a unit | ownership transfer / work stealing *(planned — not in the substrate yet)* |
+| `fog`    | fog of war | partial observability (each agent sees only its explored map; expanded via `move_op`) |
 
 No side-channel JSON between agents. The orchestrator may talk to each agent
 privately (task assignment, supervision), but **agent↔agent traffic goes
@@ -54,7 +54,7 @@ session). Offline and deterministic; real MCP sessions and
 ```
 src/wololo/
   substrate/
-    interface.py     # Substrate ABC: tick(), taunt(), market_op(), relic_op(), observe()
+    interface.py     # Substrate ABC: tick(), taunt(), market_op(), relic_op(), move_op(), observe()
     de/              # Milestone 3: bridge to a real AoE II DE match
       xsdat.py       # int32 .xsdat file codec (XS file I/O physical layer)
       protocol.py    # command/state frames: MAGIC VERSION seq ack records CHECKSUM
@@ -69,7 +69,7 @@ src/wololo/
       triggers.py    # condition→effect rules, evaluated each tick
       fog.py         # per-agent visibility masks
   codec/
-    tauntcodec.py    # serialize structured messages ⇄ taunt sequences (base-105)
+    tauntcodec.py    # messages ⇄ taunt sequences (base-52 varints over 104 symbols; 105 = end)
   agents/
     base.py          # Agent ABC: observe → think → act; typed actions
     llm.py           # LLM-backed agent, JSON mode (Anthropic API; lazy import)

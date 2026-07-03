@@ -6,6 +6,36 @@ executable specification of what the in-game script must do. Step 2 is
 validating the game half on a real installation. This document is the
 runbook for that.
 
+## Ready-made assets
+
+- `xs/wololo_probe.xs` — smoke test 0 (below), as a file.
+- `xs/wololo.xs` — the in-game half: the `FakeDeGame.step()` port
+  (mailbox poll, taunt echo into chat, market economics, state rewrite).
+- `scripts/de_demo.py` — two scripted agents (the `coop_gather`
+  propose/ack protocol) over `DeSubstrate`; `--offline` rehearses against
+  `FakeDeGame`, without flags it locates the game's `.xsdat` and drives a
+  live match. `--llm` swaps the scripts for real models served by Ollama
+  (`agents/ollama.py`, stdlib-only `LlmClient`; `--model`/`--ollama-url`
+  select the box) — expect minutes per epoch instead of seconds.
+- `scripts/newsroom_demo.py --de` — the Streamlit fact-checking pipeline
+  with the live match as the taunt bus: claims submitted in the browser
+  scroll through the game chat as taunt shouts (UTF-8 bytes in codec
+  frames) before landing on the dashboard. Long claims spill across
+  epochs: `DeSubstrate` sends at most `protocol.MAX_RECORDS` (= XS
+  `W_MAX_RECORDS` = 256) records per command frame and queues the rest.
+  If you updated `wololo.xs`, re-copy it into the game's XS folder.
+  `wololo.xs` also mirrors the virtual stockpiles onto players 1 and 2 via
+  `xsSetPlayerAttribute`, so the in-game HUD resource counters track the
+  agents' economy live. On the Feral macOS port the user XS folder is
+  `~/Library/Application Support/Feral Interactive/Age Of Empires II/VFS/`
+  `User/Games/Age of Empires 2 DE/<steam-id>/resources/_common/xs/`.
+  Note: when a scenario is *tested from the editor* the game names the
+  data file `default<N>.xsdat` (N = player slot; observed `default1` on
+  the Feral macOS port) instead of `<scenario>.xsdat`; the demo accepts
+  both. Confirmed on the Feral port: files land in
+  `.../<steam-id>/profile/`, little-endian int32, checksummed frames
+  decode with `protocol.decode_frame` unchanged.
+
 ## How the bridge works
 
 ```

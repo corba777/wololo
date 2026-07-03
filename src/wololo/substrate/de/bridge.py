@@ -21,6 +21,7 @@ from wololo.substrate.de.mailbox import FileMailbox
 from wololo.substrate.de.protocol import (
     CMD_MARKET,
     CMD_TAUNT,
+    MAX_RECORDS,
     OP_BUY,
     OP_SELL,
     RESOURCE_NAMES,
@@ -111,15 +112,25 @@ class DeSubstrate(Substrate):
         return self._observations[agent_id]
 
     def tick(self) -> int:
-        """Send the epoch's commands; block until the game acknowledges them."""
+        """Send the epoch's commands; block until the game acknowledges them.
+
+        The XS script caps inbound frames at MAX_RECORDS; anything beyond
+        that (e.g. a long text-over-taunts message) stays queued and goes
+        out with the next epoch, in order.
+        """
         if not self._connected:
             raise DeBridgeError("not connected; call connect() first")
-        self._seq += 1
-        self._mailbox.send(
-            Frame(seq=self._seq, ack=self._last_state_seq, records=tuple(self._pending))
-        )
-        self._pending.clear()
-        frame = self._await_frame(min_ack=self._seq)
+        next_seq = self._seq + 1
+        batch, self._pending = self._pending[:MAX_RECORDS], self._pending[MAX_RECORDS:]
+        self._mailbox.send(Frame(seq=next_seq, ack=self._last_state_seq, records=tuple(batch)))
+        try:
+            frame = self._await_frame(min_ack=next_seq)
+        except DeBridgeError:
+            # Game did not ack (usually paused). Put commands back so a retry
+            # resends the same epoch instead of skipping a seq.
+            self._pending = batch + self._pending
+            raise
+        self._seq = next_seq
         self._apply_state(frame)
         return self._seq
 

@@ -21,6 +21,9 @@ dev = [
 llm = [
     "anthropic>=0.40",
 ]
+ui = [
+    "streamlit>=1.40",
+]
 
 [tool.setuptools.packages.find]
 where = ["src"]

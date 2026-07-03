@@ -12,7 +12,7 @@ results are fed back as tool_results.  All calls still happen between ticks.
 from __future__ import annotations
 
 import json
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import Any, Protocol
 
 from wololo.agents.base import (
@@ -51,6 +51,21 @@ TOOL_DEFS: list[dict[str, Any]] = [
             "type": "object",
             "properties": {"taunt": {"type": "integer", "minimum": 1, "maximum": 105}},
             "required": ["taunt"],
+        },
+    },
+    {
+        "name": "send_taunts",
+        "description": "Queue shouting a whole sequence of taunts in order (e.g. an "
+        "encoded codec message). Same as calling send_taunt for each number.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "taunts": {
+                    "type": "array",
+                    "items": {"type": "integer", "minimum": 1, "maximum": 105},
+                }
+            },
+            "required": ["taunts"],
         },
     },
     {
@@ -102,6 +117,20 @@ TOOL_DEFS: list[dict[str, Any]] = [
         },
     },
     {
+        "name": "encode_text_message",
+        "description": "Codec helper (local, free): encode a short text as a "
+        "structured message — kind (int >= 0) plus the text's UTF-8 bytes as "
+        "args — into the taunt numbers to shout. Decoders see the text back.",
+        "input_schema": {
+            "type": "object",
+            "properties": {
+                "kind": {"type": "integer", "minimum": 0},
+                "text": {"type": "string"},
+            },
+            "required": ["kind", "text"],
+        },
+    },
+    {
         "name": "decode_taunts",
         "description": "Codec helper (local, free): decode a sequence of taunt "
         "numbers into structured messages. Returns complete messages plus the "
@@ -114,8 +143,19 @@ TOOL_DEFS: list[dict[str, Any]] = [
     },
 ]
 
-ACTION_TOOL_NAMES = frozenset({"send_taunt", "trade", "relic", "move"})
-HELPER_TOOL_NAMES = frozenset({"encode_message", "decode_taunts"})
+ACTION_TOOL_NAMES = frozenset({"send_taunt", "send_taunts", "trade", "relic", "move"})
+HELPER_TOOL_NAMES = frozenset({"encode_message", "encode_text_message", "decode_taunts"})
+
+
+def actions_from_tool(name: str, payload: dict[str, Any]) -> list[Action]:
+    """Turn an action-tool call into Actions (send_taunts queues several)."""
+    if name == "send_taunts":
+        try:
+            taunts = payload["taunts"]
+        except KeyError as exc:
+            raise ValueError(f"missing field {exc} for tool {name}") from exc
+        return [TauntAction(_int(t, "taunts[]")) for t in taunts]
+    return [action_from_tool(name, payload)]
 
 
 def action_from_tool(name: str, payload: dict[str, Any]) -> Action:
@@ -150,6 +190,13 @@ def run_helper_tool(name: str, payload: dict[str, Any]) -> str:
             kind = _int(payload["kind"], "kind")
             args = tuple(_int(a, "args[]") for a in payload.get("args", []))
             return json.dumps({"taunts": encode_message(Message(kind, args))})
+        if name == "encode_text_message":
+            kind = _int(payload["kind"], "kind")
+            text = payload["text"]
+            if not isinstance(text, str):
+                raise ValueError(f"text must be a string, got {text!r}")
+            args = tuple(text.encode("utf-8"))
+            return json.dumps({"taunts": encode_message(Message(kind, args))})
         if name == "decode_taunts":
             taunts = [_int(t, "taunts[]") for t in payload["taunts"]]
             for taunt in taunts:
@@ -158,13 +205,26 @@ def run_helper_tool(name: str, payload: dict[str, Any]) -> str:
             messages, remainder = split_frames(taunts)
             return json.dumps(
                 {
-                    "messages": [{"kind": m.kind, "args": list(m.args)} for m in messages],
+                    "messages": [
+                        {"kind": m.kind, "args": list(m.args), "text": args_as_text(m.args)}
+                        for m in messages
+                    ],
                     "remainder": remainder,
                 }
             )
     except (KeyError, ValueError, TauntDecodeError) as exc:
         return json.dumps({"error": str(exc)})
     raise ValueError(f"not a helper tool: {name}")
+
+
+def args_as_text(args: tuple[int, ...]) -> str | None:
+    """Render message args as text when they look like UTF-8 bytes, else None."""
+    if not args or not all(0 <= a <= 255 for a in args):
+        return None
+    try:
+        return bytes(args).decode("utf-8")
+    except UnicodeDecodeError:
+        return None
 
 
 def _int(value: Any, name: str) -> int:
@@ -234,10 +294,13 @@ class ToolLlmAgent(Agent):
         role: str,
         client: ToolLlmClient,
         providers: Sequence[ToolProvider] = (),
+        *,
+        tool_callback: Callable[[str, dict[str, Any], str], None] | None = None,
     ) -> None:
         super().__init__(agent_id)
         self._client = client
         self._system = _TOOL_SYSTEM_TEMPLATE.format(agent_id=agent_id, role=role)
+        self._tool_callback = tool_callback
         self._turns: list[list[dict[str, Any]]] = []
         self._providers: dict[str, ToolProvider] = {}
         self._tool_defs = list(TOOL_DEFS)
@@ -268,7 +331,7 @@ class ToolLlmAgent(Agent):
                     content = run_helper_tool(call.name, call.input)
                 elif call.name in ACTION_TOOL_NAMES:
                     try:
-                        actions.append(action_from_tool(call.name, call.input))
+                        actions.extend(actions_from_tool(call.name, call.input))
                         content = "queued for next tick"
                     except ValueError as exc:
                         content = json.dumps({"error": str(exc)})
@@ -276,6 +339,8 @@ class ToolLlmAgent(Agent):
                     content = provider.execute(call.name, call.input)
                 else:
                     content = json.dumps({"error": f"unknown tool {call.name!r}"})
+                if self._tool_callback is not None:
+                    self._tool_callback(call.name, call.input, content)
                 results.append({"type": "tool_result", "tool_use_id": call.id, "content": content})
             group.append({"role": "user", "content": results})
         self._turns.append(group)

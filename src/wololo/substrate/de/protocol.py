@@ -35,6 +35,10 @@ from dataclasses import dataclass
 MAGIC = 0xA0E2  # 41186
 VERSION = 1
 
+#: Sanity cap on records per frame; must match W_MAX_RECORDS in wololo.xs.
+#: Sized for text-over-taunts (a ~100-char claim is ~210 taunt records).
+MAX_RECORDS = 256
+
 CMD_TAUNT = 1
 CMD_MARKET = 2
 

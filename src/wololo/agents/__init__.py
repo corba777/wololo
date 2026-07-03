@@ -13,6 +13,7 @@ from wololo.agents.base import (
 from wololo.agents.fake import FakeLlm, Policy
 from wololo.agents.llm import AnthropicClient, LlmAgent, LlmClient, LlmReply, ToolCall
 from wololo.agents.mcp import McpSession, McpToolProvider
+from wololo.agents.ollama import OllamaClient, OllamaError
 from wololo.agents.tools import ToolLlmAgent, ToolLlmClient, ToolProvider
 
 __all__ = [
@@ -27,6 +28,8 @@ __all__ = [
     "McpSession",
     "McpToolProvider",
     "MoveAction",
+    "OllamaClient",
+    "OllamaError",
     "Policy",
     "RelicAction",
     "TauntAction",

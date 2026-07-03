@@ -81,7 +81,16 @@ def test_helper_tools_codec_round_trip() -> None:
     encoded = json.loads(run_helper_tool("encode_message", {"kind": 7, "args": [1, -2, 300]}))
     assert encoded["taunts"] == encode_message(Message(7, (1, -2, 300)))
     decoded = json.loads(run_helper_tool("decode_taunts", {"taunts": encoded["taunts"]}))
-    assert decoded == {"messages": [{"kind": 7, "args": [1, -2, 300]}], "remainder": []}
+    assert decoded == {
+        "messages": [{"kind": 7, "args": [1, -2, 300], "text": None}],
+        "remainder": [],
+    }
+
+
+def test_helper_tools_text_round_trip() -> None:
+    encoded = json.loads(run_helper_tool("encode_text_message", {"kind": 9, "text": "Wololo!"}))
+    decoded = json.loads(run_helper_tool("decode_taunts", {"taunts": encoded["taunts"]}))
+    assert decoded["messages"] == [{"kind": 9, "args": list(b"Wololo!"), "text": "Wololo!"}]
 
 
 def test_helper_tools_report_errors_instead_of_crashing() -> None:

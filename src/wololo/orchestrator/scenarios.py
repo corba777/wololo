@@ -254,9 +254,17 @@ def _shipping_pipeline(seed: int = 0) -> Scenario:
     return build_shipping_pipeline(seed).scenario
 
 
+def _newsroom_pipeline(seed: int = 0) -> Scenario:
+    # Local import: newsroom.py imports Scenario/AgentSetup from this module.
+    from wololo.orchestrator.newsroom import build_newsroom_pipeline
+
+    return build_newsroom_pipeline(seed).scenario
+
+
 SCENARIOS: dict[str, Callable[[int], Scenario]] = {
     "coop_gather": coop_gather,
     "llm_gather": llm_gather,
     "llm_gather_tools": lambda seed=0: llm_gather(seed, tools=True),
     "shipping_pipeline": _shipping_pipeline,
+    "newsroom_pipeline": _newsroom_pipeline,
 }

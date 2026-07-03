@@ -108,6 +108,78 @@ def test_observe_before_connect_raises(tmp_path: Path) -> None:
         bridge.observe(0)
 
 
+def test_oversized_taunt_burst_spills_into_next_epoch(tmp_path: Path) -> None:
+    """A burst beyond MAX_RECORDS crosses in order over several epochs
+    (the XS script caps inbound frames; long text messages need this)."""
+    from wololo.substrate.de.protocol import MAX_RECORDS
+
+    bridge, _ = make_pair(tmp_path)
+    burst = [(i % 105) + 1 for i in range(MAX_RECORDS + 10)]
+    for taunt in burst:
+        bridge.taunt(0, taunt)
+
+    bridge.tick()
+    first = [e.taunt for e in bridge.observe(1).taunts]
+    assert first == burst[:MAX_RECORDS]
+
+    bridge.tick()
+    second = [e.taunt for e in bridge.observe(1).taunts]
+    assert second == burst[MAX_RECORDS:]
+
+
+def test_newsroom_pipeline_over_the_file_bridge(tmp_path: Path) -> None:
+    """The full newsroom demo path of --de-offline: claim text and verdict
+    cross the DE mailbox as taunts; the dashboard fills on the other side."""
+    from wololo.orchestrator.newsroom import SAMPLE_CLAIMS, build_newsroom_pipeline
+
+    world = build_newsroom_pipeline()
+    bridge, _ = make_pair(tmp_path, stockpiles={0: {}, 1: {}})
+    supervisor = Supervisor(
+        bridge, [AgentSpec(s.agent_id, s.factory) for s in world.scenario.agents]
+    )
+    for _ in range(10):
+        supervisor.run_tick()
+
+    assert [n["body"] for n in world.dashboard.news] == [SAMPLE_CLAIMS[0]]
+    assert world.dashboard.fakes == [SAMPLE_CLAIMS[1]]
+    assert supervisor.restarts == {0: 0, 1: 0}
+
+
+def test_timeout_puts_commands_back_on_the_queue(tmp_path: Path) -> None:
+    """A failed ack must not advance seq or drop the command batch."""
+    cmd = tmp_path / "cmd.xsdat"
+    state = tmp_path / "state.xsdat"
+    game = FakeDeGame(cmd, state, {0: {}})
+    game.start()
+    clock = _FakeClock()
+    frozen = False
+
+    def sleep(_s: float) -> None:
+        if not frozen:
+            game.step()
+
+    bridge = DeSubstrate(
+        FileMailbox(send_path=cmd, recv_path=state),
+        agent_ids=[0],
+        timeout=0.05,
+        sleep=sleep,
+        clock=clock,
+    )
+    bridge.connect()
+    bridge.taunt(0, 42)
+    bridge.tick()  # epoch 1 acks
+    frozen = True
+    bridge.taunt(0, 43)
+    with pytest.raises(DeBridgeError, match="did not acknowledge"):
+        bridge.tick()
+    assert bridge._seq == 1  # seq not advanced on failure
+    frozen = False
+    bridge._timeout = 5.0
+    epoch = bridge.tick()
+    assert epoch == 2
+    assert bridge.observe(0).taunts[-1].taunt == 43
+
+
 def test_supervisor_coordination_over_the_file_bridge(tmp_path: Path) -> None:
     """The Milestone 1 pattern, replayed over the DE mailbox: the follower
     works only after hearing taunt 31 — coordination crosses actual files."""
