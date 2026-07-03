@@ -261,10 +261,17 @@ def _newsroom_pipeline(seed: int = 0) -> Scenario:
     return build_newsroom_pipeline(seed).scenario
 
 
+def _relic_front_page(seed: int = 0) -> Scenario:
+    from wololo.orchestrator.relic_front_page import build_relic_front_page_pipeline
+
+    return build_relic_front_page_pipeline(seed).scenario
+
+
 SCENARIOS: dict[str, Callable[[int], Scenario]] = {
     "coop_gather": coop_gather,
     "llm_gather": llm_gather,
     "llm_gather_tools": lambda seed=0: llm_gather(seed, tools=True),
     "shipping_pipeline": _shipping_pipeline,
     "newsroom_pipeline": _newsroom_pipeline,
+    "relic_front_page": _relic_front_page,
 }

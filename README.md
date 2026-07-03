@@ -1,209 +1,703 @@
 # wololo
 
-Agent orchestration framework whose coordination substrate is Age of Empires II
-mechanics. Agents communicate **exclusively** through in-game channels: taunts,
-the market, relics, monk conversions, and fog of war. See `CLAUDE.md` for the
-full design document.
+`wololo` is a small experimental playground for constrained agent-to-agent communication.
+
+The joke is simple:
+
+> What if LLM agents had to coordinate through **Age of Empires II** mechanics instead of normal JSON messages, shared memory, or direct chat?
+
+Agents communicate through a deliberately awkward substrate:
+
+- taunts as packets;
+- market prices as shared scalar state;
+- relics as locks;
+- monk conversions as ownership transfer;
+- fog of war as partial observability.
+
+This is **not** a production agent framework. It is a toy-but-executable testbed for asking a narrower question:
+
+> Can agents still coordinate when the only allowed communication channel is hostile, low-bandwidth, game-like infrastructure?
+
+`wololo` started as a joke. It remains a joke. But the communication constraint is real.
+
+---
+
+## Why this exists
+
+Most agent systems assume agents can communicate over rich structured channels:
+
+- JSON messages;
+- direct conversation;
+- shared memory;
+- tool calls;
+- external coordination services;
+- explicit workflow graphs.
+
+`wololo` asks the opposite question:
+
+> What happens if agents are forced to coordinate through a tiny, awkward, indirect substrate?
+
+Age of Empires II is used as the substrate because it is both ridiculous and surprisingly expressive. Taunts can carry packets. Markets can expose shared numeric state. Relics can behave like locks. Fog of war gives partial observability. Monk conversion gives ownership transfer.
+
+The point is not to build useful business software inside AoE II.
+
+The point is to create a funny but concrete environment where communication constraints are explicit, inspectable, and testable.
+
+---
+
+## What this is
+
+- A constrained communication substrate for multi-agent experiments.
+- A deliberately absurd transport layer for agent coordination.
+- A toy environment for testing protocol emergence, bandwidth limits, and substrate-mediated coordination.
+- A runnable joke with enough structure to become an experiment.
+- A small playground for LLM agents, scripted agents, local Ollama-backed agents, and Anthropic-backed agents.
+
+## What this is not
+
+- Not a general-purpose agent orchestration framework.
+- Not a replacement for LangGraph, AutoGen, CrewAI, MCP, Google ADK, or similar systems.
+- Not intended for production workflows.
+- Not an attempt to make Age of Empires II a serious enterprise middleware platform.
+
+Probably.
+
+---
+
+## Core idea
+
+| AoE II mechanic | Role in `wololo` |
+|---|---|
+| Taunts | Low-bandwidth message bus |
+| Market | Shared scalar state / coordination signal |
+| Relics | Locking / mutual exclusion |
+| Monk conversion | Ownership transfer |
+| Fog of war | Partial observability |
+| Match ticks | Discrete-time execution substrate |
+
+The important rule:
+
+> Agents do not get a hidden side channel.
+
+If one agent needs another agent to know something, that information must cross the substrate.
+
+In the current demos, the most developed channel is the taunt bus. Structured messages are encoded into taunt sequences, sent through the substrate, then decoded by the receiving agent.
+
+---
+
+## Repository layout
+
+```text
+.
+├── apps/                 # Streamlit UI
+├── docs/                 # AoE II DE bridge docs and runbooks
+├── images/               # Demo screenshots
+├── scripts/              # Demo runners
+├── src/wololo/           # Python package
+├── tests/                # Test suite
+├── xs/                   # AoE II DE XS bridge script
+├── CLAUDE.md             # Design / development notes
+├── README.md
+└── pyproject.toml
+```
+
+---
 
 ## Setup
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
+
 pip install -e ".[dev]"
 ```
+
+For Streamlit UI demos:
+
+```bash
+pip install -e ".[dev,ui]"
+```
+
+For Anthropic-backed LLM demos:
+
+```bash
+pip install -e ".[dev,llm]"
+```
+
+For Streamlit + Anthropic together:
+
+```bash
+pip install -e ".[dev,ui,llm]"
+```
+
+---
 
 ## Development
 
 ```bash
-pytest -q                      # test suite (must be green before commit)
-ruff check . && ruff format .  # lint & format
+pytest -q
+ruff check .
+ruff format .
 ```
+
+The deterministic scenarios are intended to stay testable without requiring external model APIs.
+
+---
 
 ## Running scenarios
 
-```bash
-wololo coop_gather            # scripted FakeLlm agents, deterministic
-wololo coop_gather --stats    # + taunt n-gram stats (protocol emergence)
-wololo coop_gather --runs 10 --stats --record runs.jsonl   # batch harness
-
-pip install -e ".[dev,llm]"   # LLM scenarios need the anthropic extra
-ANTHROPIC_API_KEY=... wololo llm_gather --stats        # raw JSON replies
-ANTHROPIC_API_KEY=... wololo llm_gather_tools --stats  # tool-use harness
-
-wololo shipping_pipeline      # email -> taunts -> spreadsheet demo (offline)
-wololo newsroom_pipeline      # claims -> fact check -> taunts -> dashboard (offline)
-```
-
-## Newsroom demo (Streamlit + two agents)
-
-A fact-checking pipeline on top of the tool harness: a Streamlit form drops
-reader claims into an inbox file; the *fact checker* agent picks them up
-through its private desk tool, decides true/false, and shouts the claim
-text across the map as a codec message whose kind encodes the verdict; the
-*journalist* agent decodes it and either publishes a story or pins the
-claim to the Fake News column of the dashboard. The claim text and the
-verdict flag cross between the agents **only** as taunts.
+### Deterministic simulation
 
 ```bash
-pip install -e ".[dev,ui,llm]"              # streamlit + Anthropic client
-pip install -e ".[dev,ui]"                  # streamlit only (scripted / Ollama)
-
-streamlit run apps/newsroom_app.py          # the form + dashboard
-python scripts/newsroom_demo.py             # the agents, scripted models
-python scripts/newsroom_demo.py --llm       # the agents, Ollama models
-python scripts/newsroom_demo.py --anthropic # the agents, Anthropic API
+wololo coop_gather
 ```
 
-Run the app and the agents side by side; both default to the exchange
-directory `~/.wololo/newsroom` (override with `--dir` on both). Offline it
-is deterministic (`wololo newsroom_pipeline`, same models as the tests).
-With `--llm` or `--anthropic`, the fact-check verdict and the published
-story come from the model — expect a minute or two per claim on local
-hardware (Ollama) or a few seconds per tool round (Anthropic).
+Scripted `FakeLlm` agents coordinate through the simulated substrate.
 
-**Ollama** (`--llm`): set `OLLAMA_HOST` (scheme optional, e.g.
-`export OLLAMA_HOST=my-box:11434`) or pass `--ollama-url`; default model
-`qwen3.6:35b` (override with `--model`).
+With taunt n-gram statistics:
 
-**Anthropic** (`--anthropic`): set `ANTHROPIC_API_KEY`; default model
-`claude-sonnet-4-5` (override with `--model`). Use `--llm` or
-`--anthropic`, not both.
+```bash
+wololo coop_gather --stats
+```
+
+Batch harness with JSONL run records:
+
+```bash
+wololo coop_gather --runs 10 --stats --record runs.jsonl
+```
+
+### Anthropic-backed LLM scenarios
 
 ```bash
 export ANTHROPIC_API_KEY=sk-ant-...
-python scripts/newsroom_demo.py --anthropic --force
-python scripts/newsroom_demo.py --de --anthropic --force   # over a live match
+
+wololo llm_gather --stats
+wololo llm_gather_tools --stats
 ```
 
-The taunt bus itself is swappable. With `--de` the agents talk over a
-**live Age of Empires II DE match** instead of the sim kernel: put the
-Streamlit window next to the game window, submit a claim, and watch its
-bytes scroll through the match chat as taunt shouts before the story
-appears on the dashboard (game setup: `docs/de_bridge.md`).
+`llm_gather` uses raw JSON-style replies.
+
+`llm_gather_tools` uses the tool-use harness: action tools queue substrate operations, while codec helper tools encode and decode structured taunt messages locally.
+
+### Offline pipeline demos
 
 ```bash
-python scripts/newsroom_demo.py --de            # scripted, over a live match
-python scripts/newsroom_demo.py --de --llm      # Ollama over a live match
-python scripts/newsroom_demo.py --de --anthropic  # Anthropic over a live match
-python scripts/newsroom_demo.py --de-offline    # same path, FakeDeGame
+wololo shipping_pipeline
+wololo newsroom_pipeline
+wololo relic_front_page
 ```
 
-#### Live game quick start (newsroom + `--de`)
+`shipping_pipeline` is a toy email → taunts → spreadsheet flow.
 
-One-time game setup (paths, smoke tests): `docs/de_bridge.md`. Then each
-session:
+`newsroom_pipeline` is a toy claims → fact-check → taunts → dashboard flow.
 
-1. **Install the bridge script** — copy `xs/wololo.xs` into the game's
-   `_common/xs/` folder (Feral macOS:
-   `~/Library/Application Support/Feral Interactive/Age Of Empires II/VFS/User/Games/Age of Empires 2 DE/<steam-id>/resources/_common/xs/`).
-2. **Start the scenario in the game** — scenario editor → `Script Filename`
-   = `wololo` → *Test Scenario*. Wait for
-   `[wololo] bridge script initialised` in match chat (no taunt flood on
-   a clean start). Keep the match **unpaused**; single-player DE pauses
-   when the window loses focus.
-3. **Streamlit** (terminal 1): `streamlit run apps/newsroom_app.py`
-4. **Runner** (terminal 2), after the game is ticking:
+`relic_front_page` is the same newsroom flow, but verified publish requires the
+`front_page` relic lock (sim kernel only; not on the DE bridge yet).
 
-   ```bash
-   python scripts/newsroom_demo.py --de --force              # scripted
-   python scripts/newsroom_demo.py --de --llm --force        # Ollama
-   python scripts/newsroom_demo.py --de --anthropic --force  # Anthropic
-   ```
+---
 
-   The runner waits for the game's state file, then loops. Submit a claim
-   in the browser; agent 0 shouts the encoded bytes in match chat, agent
-   1 answers with short status taunts (`heard the dispatch`, `decoded the
-   claim`, …), the story lands on the dashboard.
-5. **Stop** — *Stop runner* in Streamlit (or Ctrl-C in terminal 2) before
-   restarting the scenario, so stale `wololo_cmd.xsdat` does not replay old
-   taunts on the next *Test Scenario*.
+## Newsroom demo
 
-For the simpler two-agent negotiation demo (no Streamlit), use
-`scripts/de_demo.py` the same way: game scenario running first, then
-`python scripts/de_demo.py` (add `--llm` or wire Anthropic via the same
-pattern as the newsroom runner).
+The newsroom demo is currently the clearest end-to-end example.
 
-### Screenshots
+Two agents run a toy fact-checking workflow:
 
-Live mode with `--de`: Streamlit on the left, AoE II DE on the right. Agent 0
-shouts the encoded claim as taunts; agent 1 echoes short status taunts back
-into the match chat (`heard the dispatch`, `decoded the claim`, `publishing…`
-/ `flagging fake news`).
+1. A reader submits a claim through a Streamlit form.
+2. The fact-checker agent sees the claim through its private desk tool.
+3. The fact-checker decides whether the claim is true or false.
+4. The claim and verdict are encoded into taunts.
+5. The journalist agent decodes the taunts.
+6. The dashboard either publishes the story or flags it as fake news.
 
-**Ollama** (`--de --llm`, model `qwen3.6:35b`):
+The claim text and verdict cross between agents only through the taunt channel.
 
-*Claim in, taunts on the wire*
+### Run the UI
 
-![Honey claim: Streamlit log and agent 0 taunts in match chat](images/ollama/honey-claim-pipeline.png)
+```bash
+streamlit run apps/newsroom_app.py
+```
 
-*Fake-news debunk + in-game acks*
+### Run the agents with scripted models
 
-![Moon-cheese debunk with agent 1 status lines in game chat](images/ollama/de-bridge-chat.png)
+```bash
+python scripts/newsroom_demo.py
+```
 
-**Anthropic** (`--de --anthropic`, model `claude-sonnet-4-5`):
+### Run the agents with local Ollama models
 
-*Verified story published*
+```bash
+python scripts/newsroom_demo.py --llm
+```
 
-![Honey verified: dashboard story and agent 1 publishing in game chat](images/anthropic/verified-story.png)
+Default model:
 
-*Verified + fake on the dashboard*
+```text
+qwen3.6:35b
+```
 
-![Honey verified and moon-cheese flagged, with in-game fake-news ack](images/anthropic/verified-and-fake.png)
+Override it with:
 
-More captures live under `images/ollama/` and `images/anthropic/` (all tracked
-in git).
+```bash
+python scripts/newsroom_demo.py --llm --model <model-name>
+```
+
+Set the Ollama endpoint with either:
+
+```bash
+export OLLAMA_HOST=my-box:11434
+```
+
+or:
+
+```bash
+python scripts/newsroom_demo.py --llm --ollama-url http://localhost:11434
+```
+
+### Run the agents with Anthropic
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...
+
+python scripts/newsroom_demo.py --anthropic
+```
+
+Default model:
+
+```text
+claude-sonnet-4-5
+```
+
+Override it with:
+
+```bash
+python scripts/newsroom_demo.py --anthropic --model <model-name>
+```
+
+Use `--llm` or `--anthropic`, not both.
+
+### Exchange directory
+
+The Streamlit app and the agent runner default to:
+
+```text
+~/.wololo/newsroom
+```
+
+Override it with `--dir` on both sides.
+
+Example:
+
+```bash
+streamlit run apps/newsroom_app.py -- --dir /tmp/wololo-newsroom
+python scripts/newsroom_demo.py --dir /tmp/wololo-newsroom
+```
+
+---
 
 ## Running over a real Age of Empires II DE match
 
-The DE bridge drives two agents through an actual game: agent commands go
-into `wololo_cmd.xsdat`, the in-game script `xs/wololo.xs` applies them
-(taunts echoed into the match chat, market economics, stockpiles mirrored
-onto the players' HUD resource counters) and writes the state back. Setup
-(copy the XS script, create the scenario, macOS/Feral paths) is in
-`docs/de_bridge.md`.
+The taunt bus is swappable.
 
-```bash
-python scripts/de_demo.py --offline   # rehearse against FakeDeGame, no game
-python scripts/de_demo.py             # scripted agents over a live match
-python scripts/de_demo.py --llm       # agents backed by local Ollama models
+With `--de`, the agents talk over a live Age of Empires II DE match instead of the simulation kernel.
+
+The setup is intentionally strange:
+
+- agent commands are written into `wololo_cmd.xsdat`;
+- the in-game XS script reads and applies them;
+- taunts are echoed into match chat;
+- market state and stockpiles are mirrored through game state;
+- the game writes state back to the file mailbox;
+- the Python runner continues from that state.
+
+Setup details live in:
+
+```text
+docs/de_bridge.md
 ```
 
-`--llm` needs an Ollama server: set `OLLAMA_HOST` (scheme optional, e.g.
-`export OLLAMA_HOST=my-box:11434`) or pass `--ollama-url`; defaults to
-`http://localhost:11434`. Pick a model with `--model` (default
-`qwen3.6:35b`). The client (`agents/ollama.py`) is stdlib-only and works
-as a drop-in `LlmClient` alternative to the Anthropic API. Expect minutes
-per epoch with local models — the negotiation is real, not scripted.
+### Newsroom over live AoE II DE
 
-## Status
+```bash
+python scripts/newsroom_demo.py --de
+```
 
-- Milestone 1 done: deterministic sim kernel (taunt bus, market, relic
-  locks, triggers, fog), taunt codec with varint framing (base-52 chunks
-  over the 104 data taunts, taunt 105 as end-of-message marker), FakeLlm
-  agents, let-it-crash supervisor, `coop_gather` scenario green in tests.
-- Milestone 2 done: `LlmAgent` backed by the Anthropic API (dependency
-  confined to `agents/llm.py`, injectable stub clients in tests),
-  `llm_gather` cooperative negotiation scenario, taunt n-gram statistics
-  for measuring protocol emergence.
-- Tool harness done: `ToolLlmAgent` uses Anthropic tool use (action tools
-  queue substrate ops; codec helper tools encode/decode structured taunt
-  messages locally), plus a batch experiment harness with JSONL run
-  records and cross-run n-gram aggregation.
-- MCP tool-provider layer done: per-agent `McpToolProvider` sessions give
-  agents private real-world tools (email, spreadsheets) with credential
-  scoping; the `shipping_pipeline` demo moves an Amazon shipping email
-  into a spreadsheet with all agent-to-agent traffic on the taunt codec.
-  The `newsroom_pipeline` demo adds a Streamlit front end: reader claims
-  are fact-checked by one agent and published (or flagged as Fake News)
-  by another, the claim text crossing the map as UTF-8 bytes in taunt
-  frames; live mode runs both agents on local Ollama models or the
-  Anthropic API (`--llm` / `--anthropic` on `scripts/newsroom_demo.py`).
-- Milestone 3 done: AoE II DE bridge — `.xsdat` int32 codec, checksummed
-  frame protocol, file mailbox, `DeSubstrate` (taunt + market channels),
-  `FakeDeGame` as the executable spec, and `xs/wololo.xs` validated on the
-  Feral macOS port. Live demos: `scripts/de_demo.py` (coop negotiation
-  over a match) and `scripts/newsroom_demo.py --de` (Streamlit fact-check
-  pipeline with claims scrolling through match chat), scripted or
-  LLM-backed (Ollama / Anthropic). Runbook: `docs/de_bridge.md`. Relic,
-  fog, and monk conversion remain sim-only for now.
+With Ollama:
+
+```bash
+python scripts/newsroom_demo.py --de --llm
+```
+
+With Anthropic:
+
+```bash
+python scripts/newsroom_demo.py --de --anthropic
+```
+
+With the fake DE bridge path, no live game:
+
+```bash
+python scripts/newsroom_demo.py --de-offline
+```
+
+### Live game quick start
+
+One-time setup is documented in:
+
+```text
+docs/de_bridge.md
+```
+
+For each live session:
+
+1. Copy the bridge script:
+
+   ```text
+   xs/wololo.xs
+   ```
+
+   into the game's `_common/xs/` folder.
+
+   On the Feral macOS port, the path is usually similar to:
+
+   ```text
+   ~/Library/Application Support/Feral Interactive/Age Of Empires II/VFS/User/Games/Age of Empires 2 DE/<steam-id>/resources/_common/xs/
+   ```
+
+2. Start the scenario in the game.
+
+   In the scenario editor:
+
+   ```text
+   Script Filename = wololo
+   ```
+
+   Then run:
+
+   ```text
+   Test Scenario
+   ```
+
+   Wait for this line in match chat:
+
+   ```text
+   [wololo] bridge script initialised
+   ```
+
+3. Keep the match unpaused.
+
+   Single-player DE pauses when the game window loses focus.
+
+4. Start the Streamlit dashboard:
+
+   ```bash
+   streamlit run apps/newsroom_app.py
+   ```
+
+5. Start the runner after the game is ticking:
+
+   ```bash
+   python scripts/newsroom_demo.py --de --force
+   ```
+
+   Or with Ollama:
+
+   ```bash
+   python scripts/newsroom_demo.py --de --llm --force
+   ```
+
+   Or with Anthropic:
+
+   ```bash
+   python scripts/newsroom_demo.py --de --anthropic --force
+   ```
+
+6. Submit a claim in the browser.
+
+   Agent 0 shouts the encoded claim bytes into match chat. Agent 1 answers with short status taunts such as:
+
+   ```text
+   heard the dispatch
+   decoded the claim
+   publishing...
+   flagging fake news
+   ```
+
+   Then the story lands on the dashboard.
+
+7. Stop the runner before restarting the scenario.
+
+   Use the Streamlit stop button or `Ctrl-C` in the runner terminal. This avoids replaying stale `wololo_cmd.xsdat` commands on the next scenario run.
+
+---
+
+## Simpler live negotiation demo
+
+For the smaller two-agent negotiation demo without Streamlit:
+
+```bash
+python scripts/de_demo.py --offline
+```
+
+Against a live match:
+
+```bash
+python scripts/de_demo.py
+```
+
+With local Ollama models:
+
+```bash
+python scripts/de_demo.py --llm
+```
+
+`--llm` needs an Ollama server. Set:
+
+```bash
+export OLLAMA_HOST=my-box:11434
+```
+
+or pass:
+
+```bash
+python scripts/de_demo.py --llm --ollama-url http://localhost:11434
+```
+
+Pick a model with:
+
+```bash
+python scripts/de_demo.py --llm --model <model-name>
+```
+
+The local Ollama negotiation may take minutes per epoch. That is expected: the agents are actually negotiating rather than following a precomputed script.
+
+---
+
+## Screenshots
+
+Live mode with `--de`: Streamlit on the left, AoE II DE on the right. Agent 0 shouts the encoded claim as taunts; agent 1 echoes short status taunts back into the match chat.
+
+### Ollama
+
+`--de --llm`, default model `qwen3.6:35b`.
+
+Claim in, taunts on the wire:
+
+![Honey claim: Streamlit log and agent 0 taunts in match chat](images/ollama/honey-claim-pipeline.png)
+
+Fake-news debunk + in-game acknowledgements:
+
+![Moon-cheese debunk with agent 1 status lines in game chat](images/ollama/de-bridge-chat.png)
+
+### Anthropic
+
+`--de --anthropic`, default model `claude-sonnet-4-5`.
+
+Verified story published:
+
+![Honey verified: dashboard story and agent 1 publishing in game chat](images/anthropic/verified-story.png)
+
+Verified + fake on the dashboard:
+
+![Honey verified and moon-cheese flagged, with in-game fake-news acknowledgement](images/anthropic/verified-and-fake.png)
+
+More captures live under:
+
+```text
+images/ollama/
+images/anthropic/
+```
+
+---
+
+## Current status
+
+### Done
+
+- Deterministic simulation kernel:
+  - taunt bus;
+  - market channel;
+  - relic locks;
+  - triggers;
+  - fog;
+  - scripted fake agents;
+  - let-it-crash supervisor.
+
+- Taunt codec:
+  - varint framing;
+  - base-52 chunks over the data taunts;
+  - taunt `105` as end-of-message marker.
+
+- Deterministic `coop_gather` scenario.
+
+- Anthropic-backed `LlmAgent`.
+
+- `llm_gather` cooperative negotiation scenario.
+
+- Taunt n-gram statistics for rough protocol-emergence inspection.
+
+- Tool-use harness:
+  - `ToolLlmAgent`;
+  - substrate action tools;
+  - local codec helper tools;
+  - batch experiment harness;
+  - JSONL run records;
+  - cross-run n-gram aggregation.
+
+- MCP-style tool-provider layer:
+  - per-agent tool sessions;
+  - private tools;
+  - credential scoping;
+  - shipping pipeline demo.
+
+- Newsroom pipeline:
+  - Streamlit form;
+  - fact-checker agent;
+  - journalist agent;
+  - taunt-encoded claim transfer;
+  - dashboard publishing / fake-news flagging.
+
+- AoE II DE bridge:
+  - `.xsdat` int32 codec;
+  - checksummed frame protocol;
+  - file mailbox;
+  - `DeSubstrate`;
+  - `FakeDeGame` executable spec;
+  - `xs/wololo.xs`;
+  - live demos through `scripts/de_demo.py` and `scripts/newsroom_demo.py --de`.
+
+### Still simulation-only
+
+These mechanics exist in the simulated substrate but are not fully live through the DE bridge yet:
+
+- relics;
+- fog;
+- monk conversion.
+
+---
+
+## Possible experiments
+
+These are not all implemented yet, but they are the direction where the toy becomes more useful.
+
+### Direct channel baseline
+
+Run the same scenario with direct JSON communication and compare it to the taunt substrate.
+
+Useful metrics:
+
+| Metric | Meaning |
+|---|---|
+| success rate | Did the agents complete the task? |
+| ticks to completion | How long did coordination take? |
+| taunts per task | Communication cost |
+| bytes per task | Payload cost |
+| retries | Protocol instability |
+| failures by type | Decode error, timeout, contradiction, etc. |
+
+### Lossy channel
+
+Add channel noise:
+
+```bash
+--drop-rate 0.05
+--duplicate-rate 0.02
+--shuffle-window 3
+--max-taunts-per-tick 20
+```
+
+Then compare protocols with and without acknowledgements.
+
+### ACK/NACK protocol
+
+Build a thin session protocol over taunts:
+
+```text
+MSG
+ACK
+NACK
+SEQ
+CHECKSUM
+RETRANSMIT
+```
+
+This would turn the project into a small “TCP over AoE II taunts” experiment.
+
+### Protocol emergence
+
+Track repeated n-grams, entropy, compression, and task-specific conventions across multiple runs.
+
+The obvious question:
+
+> Do agents invent stable communication shortcuts when the channel is expensive?
+
+---
+
+## Roadmap
+
+Possible next steps:
+
+- tighten README and docs around the “constrained A2A substrate” framing;
+- split the protocol details into `docs/protocol.md`;
+- add `docs/experiments.md`;
+- add a benchmark command;
+- add direct-channel baselines;
+- add lossy-channel simulation;
+- add ACK/NACK retransmission;
+- expose more metrics in the Streamlit dashboard;
+- expand the live DE bridge beyond taunts and market state;
+- add a short demo video or GIF.
+
+---
+
+## Design notes
+
+See:
+
+```text
+CLAUDE.md
+```
+
+for the current design/development notes.
+
+A more formal protocol document should probably move to:
+
+```text
+docs/protocol.md
+```
+
+once the codec and substrate semantics stabilize.
+
+---
+
+## Suggested GitHub metadata
+
+Repository description:
+
+```text
+Toy experimental substrate for constrained LLM agent communication through Age of Empires II mechanics.
+```
+
+Suggested topics:
+
+```text
+llm-agents
+multi-agent-systems
+agent-communication
+protocol-emergence
+age-of-empires-ii
+ollama
+anthropic
+streamlit
+```
+
+---
+
+## Name
+
+`wololo` is named after the classic Age of Empires priest / monk conversion sound.
+
+It is also a fair description of the project’s research methodology.
+
+```text
+wololo
+```
