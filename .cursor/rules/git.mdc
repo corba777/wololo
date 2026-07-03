@@ -1,0 +1,12 @@
+---
+description: Git — no commits or pushes unless the user explicitly asks
+alwaysApply: true
+---
+
+# Git workflow
+
+- **Never** run `git commit`, `git push`, `git push --force`, or `git commit --amend` unless the user explicitly asks in that conversation turn (e.g. "commit", "закоммить", "push").
+- Finishing a task does **not** imply permission to commit. Say what changed and stop; offer to commit only if useful.
+- **Never** add `Co-authored-by: Cursor` or other Cursor attribution trailers to commit messages.
+- When the user **does** ask to commit: use their git identity, not Cursor's; follow the repo's commit-message style; run tests if the change is non-trivial.
+- When the user asks to push to `main`: warn that force-push rewrites remote history; use `--force-with-lease` only when history was rewritten and they confirmed.
