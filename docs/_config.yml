@@ -1,0 +1,7 @@
+title: wololo
+description: Toy experimental substrate for constrained LLM agent communication through Age of Empires II mechanics.
+theme: minima
+baseurl: "/wololo"
+url: "https://corba777.github.io"
+
+markdown: kramdown

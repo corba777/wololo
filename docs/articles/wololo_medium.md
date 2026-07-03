@@ -1,6 +1,13 @@
+---
+layout: default
+title: "My Agents Communicate Exclusively in Age of Empires II Taunts"
+description: "I turned a workplace joke into a constrained multi-agent communication testbed with a green test suite, a live Age of Empires II bridge — and, accidentally, the kind of audit log production agent systems keep promising."
+permalink: /articles/wololo/
+---
+
 # My Agents Communicate Exclusively in Age of Empires II Taunts
 
-*Subtitle: I turned a workplace joke into a constrained multi-agent communication testbed with a green test suite, a live Age of Empires II bridge — and, accidentally, the kind of audit log production agent systems keep promising.*
+*I turned a workplace joke into a constrained multi-agent communication testbed with a green test suite, a live Age of Empires II bridge — and, accidentally, the kind of audit log production agent systems keep promising.*
 
 ---
 
