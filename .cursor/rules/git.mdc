@@ -8,5 +8,6 @@ alwaysApply: true
 - **Never** run `git commit`, `git push`, `git push --force`, or `git commit --amend` unless the user explicitly asks in that conversation turn (e.g. "commit", "закоммить", "push").
 - Finishing a task does **not** imply permission to commit. Say what changed and stop; offer to commit only if useful.
 - **Never** add `Co-authored-by: Cursor` or other Cursor attribution trailers to commit messages.
+- Cursor's agent commit hook injects that trailer automatically. If the user asks to commit, **do not** use the Shell `git commit` tool — tell them to commit locally, or rewrite with `git commit-tree` + `git update-ref` (no hooks) using identity `corba777 <2909341+corba777@users.noreply.github.com>`.
 - When the user **does** ask to commit: use their git identity, not Cursor's; follow the repo's commit-message style; run tests if the change is non-trivial.
 - When the user asks to push to `main`: warn that force-push rewrites remote history; use `--force-with-lease` only when history was rewritten and they confirmed.
