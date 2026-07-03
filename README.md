@@ -133,15 +133,23 @@ into the match chat (`heard the dispatch`, `decoded the claim`, `publishing…`
 
 **Ollama** (`--de --llm`, model `qwen3.6:35b`):
 
-| Claim in, taunts on the wire | Fake-news debunk + in-game acks |
-|---|---|
-| ![Honey claim: Streamlit log and agent 0 taunts in match chat](images/ollama/honey-claim-pipeline.png) | ![Moon-cheese debunk with agent 1 status lines in game chat](images/ollama/de-bridge-chat.png) |
+*Claim in, taunts on the wire*
+
+![Honey claim: Streamlit log and agent 0 taunts in match chat](images/ollama/honey-claim-pipeline.png)
+
+*Fake-news debunk + in-game acks*
+
+![Moon-cheese debunk with agent 1 status lines in game chat](images/ollama/de-bridge-chat.png)
 
 **Anthropic** (`--de --anthropic`, model `claude-sonnet-4-5`):
 
-| Verified story published | Verified + fake on the dashboard |
-|---|---|
-| ![Honey verified: dashboard story and agent 1 publishing in game chat](images/anthropic/verified-story.png) | ![Honey verified and moon-cheese flagged, with in-game fake-news ack](images/anthropic/verified-and-fake.png) |
+*Verified story published*
+
+![Honey verified: dashboard story and agent 1 publishing in game chat](images/anthropic/verified-story.png)
+
+*Verified + fake on the dashboard*
+
+![Honey verified and moon-cheese flagged, with in-game fake-news ack](images/anthropic/verified-and-fake.png)
 
 More captures live under `images/ollama/` and `images/anthropic/` (all tracked
 in git).
