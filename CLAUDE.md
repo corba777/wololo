@@ -136,15 +136,16 @@ tests/
    tool-use mode), taunt n-gram stats for protocol emergence, batch
    experiment harness. Plus the MCP tool-provider layer and the
    `shipping_pipeline` real-world demo (see "External tools").
-3. **IN PROGRESS** — Bridge to actual AoE II DE. Step 1 (offline) done:
+3. **DONE** — Bridge to actual AoE II DE. Offline half:
    `substrate/de/` file-mailbox protocol, `DeSubstrate` (taunt + market
    channels), `FakeDeGame` as the executable spec for the in-game XS
-   script, contract tests green with no game installed. Step 2 pends the
-   XS smoke test on a real installation — runbook in `docs/de_bridge.md`
-   (DE now ships a native macOS build as of May 2026). The DE bridge is
+   script, contract tests green with no game installed. In-game half
+   (`xs/wololo.xs`) validated on the Feral macOS port (May 2026 native
+   build): live match driven by `scripts/de_demo.py` and the Streamlit
+   newsroom over `--de`. Runbook: `docs/de_bridge.md`. The DE bridge is
    wall-clock bound by nature; the "no wall-clock" rule applies to the sim
    kernel, not here. Sim stays the reference implementation and the CI
-   substrate.
+   substrate. Relic, fog, and wololo conversion remain planned / sim-only.
 
 ## What NOT to do
 

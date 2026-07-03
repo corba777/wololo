@@ -199,11 +199,11 @@ per epoch with local models — the negotiation is real, not scripted.
   by another, the claim text crossing the map as UTF-8 bytes in taunt
   frames; live mode runs both agents on local Ollama models or the
   Anthropic API (`--llm` / `--anthropic` on `scripts/newsroom_demo.py`).
-- Milestone 3 (AoE II DE bridge) in progress: the offline half is done —
-  `.xsdat` int32 codec, checksummed frame protocol, file mailbox,
-  `DeSubstrate` (taunt + market channels), and `FakeDeGame` as the
-  executable spec for the in-game XS script. The in-game half
-  (`xs/wololo.xs`) is validated on the Feral macOS port: two agents
-  negotiated a work split over taunts and reached a team gold goal
-  through a live match (`scripts/de_demo.py`), scripted or LLM-backed
-  (Anthropic API or a local Ollama server). Runbook: `docs/de_bridge.md`.
+- Milestone 3 done: AoE II DE bridge — `.xsdat` int32 codec, checksummed
+  frame protocol, file mailbox, `DeSubstrate` (taunt + market channels),
+  `FakeDeGame` as the executable spec, and `xs/wololo.xs` validated on the
+  Feral macOS port. Live demos: `scripts/de_demo.py` (coop negotiation
+  over a match) and `scripts/newsroom_demo.py --de` (Streamlit fact-check
+  pipeline with claims scrolling through match chat), scripted or
+  LLM-backed (Ollama / Anthropic). Runbook: `docs/de_bridge.md`. Relic,
+  fog, and monk conversion remain sim-only for now.

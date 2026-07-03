@@ -1,10 +1,9 @@
 # DE bridge — in-game side and smoke test
 
-Milestone 3, step 1 (this repo) is done offline: `wololo.substrate.de`
-implements the file-mailbox protocol, `DeSubstrate`, and `FakeDeGame` — the
-executable specification of what the in-game script must do. Step 2 is
-validating the game half on a real installation. This document is the
-runbook for that.
+Milestone 3 is done in this repo: `wololo.substrate.de` implements the
+file-mailbox protocol, `DeSubstrate`, and `FakeDeGame` offline; `xs/wololo.xs`
+is validated on a real Feral macOS installation. This document is the
+runbook for reproducing that setup.
 
 ## Ready-made assets
 
